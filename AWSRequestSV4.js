@@ -13,79 +13,66 @@ class AWSRequestSV4{
 	/**
 	 * Constructor for the class
 	 *
-	 * @param {String} method
-	 * @param {String} url
-	 * @param {Object} params
-	 * @param {Function} [callback]
+	 * @param {Object} options
+	 * @param {Object} options.awsCredentials this has to be the AWS.config.credentials object obtained after logging in with Cognito Federated Identities
+	 * @param {String} options.method the request http method: GET, PUT, POST, PATCH, DELETE
+	 * @param {String} options.url the full url of the Api Gateway endpoint <i>https://xyz123.execute-api.&lt;region>.amazonaws.com/&lt;deploy_instance>/&lt;endpoint></i>
+	 * @param {Object} options.params a simple plain javascript object containing the parameters of the request, if the method is of type GET the params will be converted in querystring format
+	 * @param {String} options.region the AWS region of the service you are making the request for
+	 * @param {String} options.service the AWS standard service name, for a the whole list visit http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
+	 * @param {Function} [options.callback] an optional callback function that wil be executed once the request is over
 	 */
-	constructor(method, url, params, callback) {
+	constructor(options) {
 
-		this.method = method.trim().toUpperCase();
-		//this.host = this.getHost(url);
-		this.URI = this.getCanonicalURI(url);
-		this.params = params;
-		this.queryString = this.getCanonicalQueryString(params);
+		this.awsCredentials = options.awsCredentials;
+		this.service = options.service;
+		this.region = options.region;
+		this.method = options.method.trim().toUpperCase();
+		this.URI = this.getCanonicalURI(options.url);
+		this.params = options.params;
+		this.queryString = this.getCanonicalQueryString(options.params);
 		let headers = {
-			'Host': this.getHost(url),
-			'x-amz-date': this.getISO8601Date()
+			'Host': this.getHost(options.url),
+			'X-Amz-Date': this.getISO8601Date()
 		};
 
 		if (this.method !== 'GET') {
 			headers['Content-Type'] = 'application/json';
-			params = JSON.encode(params);
+			options.params = JSON.encode(options.params);
 		}
 
 		//MooTool request
 		this.request = new Request({
 			method: this.method,
 			emulation: false,
-			url: url,
+			url: options.url,
 			headers: headers,
-			data: params,
+			data: options.params,
 			onSuccess(responseText){
 
 				console.log("success:", responseText);
 			},
-			onFailure(){
+			onFailure(xhr){
 
-				console.warn("error.");
+				console.warn("error.",xhr);
 			}
 		});
 		this.prepareHeadersEntries();
 	}
 
 	/**
-	 * Method for getting the signature to include in the canonical request.
-	 *
-	 * @param {Object} Crypto
-	 * @param {String} key
-	 * @param {String} dateStamp
-	 * @param {String} regionName
-	 * @param {String} serviceName
-	 * @returns {String} hashed signature
-	 */
-	getSignatureKey(Crypto, key, dateStamp, regionName, serviceName) {
-		var kDate = Crypto.HmacSHA256(dateStamp, "AWS4" + key);
-		var kRegion = Crypto.HmacSHA256(regionName, kDate);
-		var kService = Crypto.HmacSHA256(serviceName, kRegion);
-		return Crypto.HmacSHA256("aws4_request", kService);
-	}
-
-	/**
-	 * Method to get the request in canonical form once that all fields have beet set.
+	 * Method to get the request in canonical form once that all fields have been set.
 	 *
 	 * @returns {string} canonical request
 	 */
 	getCanonicalRequest(){
-		var canonicalRequest =
-			this.method + '\n' +
+
+		return this.method + '\n' +
 			this.URI + '\n' +
 			this.queryString + '\n' +
 			this.getCanonicalHeadres() + '\n' +
 			this.getSignedHeaders() + '\n' +
 			this.getHashedPayload();
-
-		return canonicalRequest;
 	}
 
 	/**
@@ -94,6 +81,7 @@ class AWSRequestSV4{
 	 * @param url
 	 */
 	getHost(url){
+
 		let regex = '//';
 		let begin = url.indexOf(regex);
 		if(begin !== -1){
@@ -114,6 +102,7 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getCanonicalURI(url){
+
 		let regex = '//';
 		let begin = url.indexOf(regex);
 		if(begin !== -1){
@@ -130,9 +119,11 @@ class AWSRequestSV4{
 				url = url.substring(0, end);
 			}
 		}
+		/*
 		if(url.charAt(url.length-1) !== '/'){
 			url += '/';
 		}
+		*/
 		url = url.toLowerCase().trim();
 		return encodeURI(url);
 	}
@@ -148,6 +139,7 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getCanonicalQueryString(elem){
+
 		let cqs = '';
 		if(typeof elem === 'string') {
 			let regex = '?';
@@ -188,6 +180,7 @@ class AWSRequestSV4{
 	 * @param req
 	 */
 	prepareHeadersEntries(){
+
 		if(typeof this.request.options.headers !== 'undefined'
 			&& this.request.options.headers !== null){
 
@@ -216,6 +209,7 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getSignedHeaders(){
+
 		return Object.keys(this.headers).sort().join(';');
 	}
 
@@ -240,6 +234,7 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getHashedPayload(){
+
 		if(this.method === 'GET' )
 			return CryptoJS.SHA256('')
 				.toString()
@@ -257,9 +252,26 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getCanonicalRequestDigest(){
-		return CryptoJS.SHA256(JSON.encode(this.getCanonicalRequest()))
+
+		return CryptoJS.SHA256(this.getCanonicalRequest())
 			.toString()
 			.toLowerCase();
+	}
+
+	/**
+	 * Returns a string representing the current date in YYYYMMDD format.
+	 *
+	 * @returns {string}
+	 */
+	getDate(){
+
+		const date = new Date();
+		let year = date.getFullYear();
+		let month = date.getMonth()+1;
+		month = (month<10)?('0'+month):month;
+		let day = date.getUTCDate();
+		day = (day<10)?('0'+day):day;
+		return '' + year + month + day;
 	}
 
 	/**
@@ -269,24 +281,63 @@ class AWSRequestSV4{
 	 * @returns {string}
 	 */
 	getISO8601Date(){
-		var date = new Date();
-		let year = date.getFullYear();
-		let month = date.getMonth()+1;
-		month = (month<10)?('0'+month):month;
-		let day = date.getUTCDate();
-		let hour = date.getHours();
+
+		const date = new Date();
+		let hour = date.getUTCHours();
 		hour = (hour<10)?('0'+hour):hour;
 		let minutes = date.getMinutes();
 		minutes = (minutes<10)?('0'+minutes):minutes;
 		let seconds = date.getSeconds();
 		seconds = (seconds<10)?('0'+seconds):seconds;
-		return '' + year + month + day + 'T' + hour + minutes + seconds + 'Z';
+		return this.getDate() + 'T' + hour + minutes + seconds + 'Z';
 	}
 
-	createStringToSign(){
+	/**
+	 * Creates the signature to add to the request.
+	 *
+	 * @returns {string}
+	 */
+	getSignature(){
 
-		let strToSign = 'AWS4-HMAC-SHA256\n' + this.headers['x-amz-date'];
+		//create signing key
+		let kDate = CryptoJS.HmacSHA256(this.getDate(),"AWS4" + this.awsCredentials.secretAccessKey);
+		let kRegion = CryptoJS.HmacSHA256(this.region,kDate);
+		let kService = CryptoJS.HmacSHA256(this.service,kRegion);
+		let signignKey =  CryptoJS.HmacSHA256("aws4_request",kService);
 
-		return strToSign;
+
+		//create the string to sign
+		let stringToSign = 'AWS4-HMAC-SHA256\n'
+				+ this.headers['x-amz-date'] + '\n'
+				+ this.getDate() + '/' + this.region + '/' + this.service + '/aws4_request\n'
+				+ this.getCanonicalRequestDigest();
+
+		console.log('String to sign');
+		console.log(stringToSign);
+
+		//create the signature
+		return CryptoJS.HmacSHA256(stringToSign,signignKey).toString();
 	}
+
+	/**
+	 * Prepare the request adding the Authorization and the X-Amz-Security-Token
+	 * headers.
+	 * The X-Amz-Security-Token is needed because we are accessing AWS resources
+	 * with Cognito Federated Identities.
+	 */
+	prepareRequest(){
+
+		let request = this.request;
+
+		//create the Authorization header
+		let authorization = 'AWS4-HMAC-SHA256 '
+			+ 'Credential=' + this.awsCredentials.accessKeyId + '/' + this.getDate() + '/' + this.region + '/' + this.service + '/aws4_request, '
+			+ 'SignedHeaders=' + this.getSignedHeaders() + ', '
+			+ 'Signature=' + this.getSignature();
+
+		//add the security tokens to the request
+		request.setHeader('Authorization', authorization);
+		request.setHeader('X-Amz-Security-Token', this.awsCredentials.sessionToken);
+	}
+
 }
