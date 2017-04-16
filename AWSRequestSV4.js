@@ -1,6 +1,6 @@
 /**
  * Created by Nicola Meneghetti <menego1983@gmail.com>
- * Version 1.0
+ * Version 1.1
  *
  * This class has the purpose to create a Canonical Request for Signature Version 4
  * in order to call AWS services with federated identities via HTTP requests.
