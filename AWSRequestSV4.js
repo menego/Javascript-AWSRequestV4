@@ -5,8 +5,7 @@
  * This class has the purpose to create a Canonical Request for Signature Version 4
  * in order to call AWS services with federated identities via HTTP requests.
  * Reference <a href="http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html">here</a>
- * IMPORTANT: this class uses some of the MooTool library features so take care
- * to change it if and when it will be dismissed or replaced.
+ * <b>DEPENDENCY: Crypto-js, you can download it <a href="https://code.google.com/archive/p/crypto-js/">here</a> or use a CDN.</b>
  */
 class AWSRequestSV4{
 
@@ -16,11 +15,13 @@ class AWSRequestSV4{
 	 * @param {Object} options
 	 * @param {Object} options.awsCredentials this has to be the AWS.config.credentials object obtained after logging in with Cognito Federated Identities
 	 * @param {String} options.method the request http method: GET, PUT, POST, PATCH, DELETE
+	 * @param {Boolean} options.async to make the request asynchronous or not
 	 * @param {String} options.url the full url of the Api Gateway endpoint <i>https://xyz123.execute-api.&lt;region>.amazonaws.com/&lt;deploy_instance>/&lt;endpoint></i>
 	 * @param {Object} options.params a simple plain javascript object containing the parameters of the request, if the method is of type GET the params will be converted in querystring format
 	 * @param {String} options.region the AWS region of the service you are making the request for
 	 * @param {String} options.service the AWS standard service name, for a the whole list visit http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
-	 * @param {Function} [options.callback] an optional callback function that wil be executed once the request is over
+	 * @param {Function} [options.onSuccess(resp)] an optional callback function that wil be executed once the request succeeds, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
+	 * @param {Function} [options.onFailure(resp)] an optional callback function that wil be executed once the request fails, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
 	 */
 	constructor(options) {
 
@@ -31,33 +32,48 @@ class AWSRequestSV4{
 		this.URI = this.getCanonicalURI(options.url);
 		this.params = options.params;
 		this.queryString = this.getCanonicalQueryString(options.params);
+
 		let headers = {
 			'Host': this.getHost(options.url),
 			'X-Amz-Date': this.getISO8601Date()
 		};
 
-		if (this.method !== 'GET') {
-			headers['Content-Type'] = 'application/json';
-			options.params = JSON.encode(options.params);
-		}
+		if(typeof options.params !== 'undefined'
+			&& options.params !== null
+			&& Object.keys(options.params).length > 0
+			&& options.params.constructor === Object) {
+            if (this.method !== 'GET') {
+                headers['Content-Type'] = 'application/json';
+            }
+            else {
+                //in case of get request we append the params to the url
+                options.url += '?' + this.toQueryString(options.params);
+            }
+        }
+        this.request = new XMLHttpRequest();
+        this.request.open(this.method, options.url, options.async);
+        this.request.onreadystatechange = function() {
+				//attach the callback
+				if (this.readyState === 4 && this.status === 200) {
 
-		//MooTool request
-		this.request = new Request({
-			method: this.method,
-			emulation: false,
-			url: options.url,
-			headers: headers,
-			data: options.params,
-			onSuccess(responseText){
+					if(options.onSuccess && typeof options.onSuccess === 'function')
+                        options.onSuccess({
+							readyState: this.readyState,
+							status: this.status,
+                            responseText: this.responseText
+						});
+				}
+				else{
+                    if(options.onFailure && typeof options.onFailure === 'function')
+                        options.onFailure({
+                            readyState: this.readyState,
+                            status: this.status,
+                            responseText: this.responseText
+                        });
+				}
+        };
 
-				console.log("success:", responseText);
-			},
-			onFailure(xhr){
-
-				console.warn("error.",xhr);
-			}
-		});
-		this.prepareHeadersEntries();
+		this.prepareHeadersEntries(headers);
 	}
 
 	/**
@@ -172,21 +188,23 @@ class AWSRequestSV4{
 	}
 
 	/**
-	 * Extracts the headers from the request object and normalize them.
-	 * The values are saved in the object <i>headers</i> variable.
-	 * IMPORTANT: this method assumes that the request object is created with MooTool
-	 * so take care to change it if and when you will change framework.
+	 * Extracts the headers from passed object, set them to the request and normalize them for the canonical request.
+	 * The normalized values are saved in the <i>headers</i> variable.
 	 *
-	 * @param req
+	 * @param reqHeaders
 	 */
-	prepareHeadersEntries(){
+	prepareHeadersEntries(reqHeaders){
 
-		if(typeof this.request.options.headers !== 'undefined'
-			&& this.request.options.headers !== null){
+		if(typeof reqHeaders !== 'undefined'
+			&& reqHeaders !== null){
 
-			const reqHeaders = this.request.options.headers;
+			let $self = this;
 			let objectHeaders = this.headers = [];
 			Object.keys(reqHeaders).forEach(function(key) {
+
+				//host header is set automatically
+                if(key !== 'Host')
+					$self.request.setRequestHeader(key, reqHeaders[key]);
 
 				let newKey = key.trim()
 					.replace('  ',' ')
@@ -199,7 +217,7 @@ class AWSRequestSV4{
 			});
 		}
 		else{
-			console.error("function parameter 'req' does not have headers, is that a MooTool Request object?");
+			console.error("function parameter 'reqHeaders' does not contains any headers.");
 		}
 	}
 
@@ -257,6 +275,20 @@ class AWSRequestSV4{
 			.toString()
 			.toLowerCase();
 	}
+
+    /**
+	 * Utility method to convert a simple javascript object into query string.
+     * @param obj
+     * @returns {string}
+     */
+    toQueryString(obj) {
+        let str = [];
+        for(let p in obj)
+            if (obj.hasOwnProperty(p)) {
+                str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+            }
+        return str.join("&");
+    }
 
 	/**
 	 * Returns a string representing the current date in YYYYMMDD format.
@@ -336,8 +368,21 @@ class AWSRequestSV4{
 			+ 'Signature=' + this.getSignature();
 
 		//add the security tokens to the request
-		request.setHeader('Authorization', authorization);
-		request.setHeader('X-Amz-Security-Token', this.awsCredentials.sessionToken);
+		request.setRequestHeader('Authorization', authorization);
+		request.setRequestHeader('X-Amz-Security-Token', this.awsCredentials.sessionToken);
+	}
+
+    	/**
+	* Sends the request.
+     	*/
+	send(){
+		this.prepareRequest();
+        	if (this.method !== 'GET') {
+            		this.request.send(JSON.stringify(this.params));
+		}
+        	else {
+            		this.request.send();
+        	}
 	}
 
 }
