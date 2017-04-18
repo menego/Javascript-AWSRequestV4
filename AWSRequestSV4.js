@@ -20,8 +20,8 @@ class AWSRequestSV4{
 	 * @param {Object} options.params a simple plain javascript object containing the parameters of the request, if the method is of type GET the params will be converted in querystring format
 	 * @param {String} options.region the AWS region of the service you are making the request for
 	 * @param {String} options.service the AWS standard service name, for a the whole list visit http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
-	 * @param {Function} [options.onSuccess(resp)] an optional callback function that will be executed if the request succeeds, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
-	 * @param {Function} [options.onFailure(resp)] an optional callback function that will be executed if the request fails, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
+	 * @param {Function} [options.onSuccess(resp)] an optional callback function that will be executed if the request succeeds, resp param is an object containing the <i>readyState</i>, the <i>status</i> and the <i>responseText</i>
+	 * @param {Function} [options.onFailure(resp)] an optional callback function that will be executed if the request fails, resp param is an object containing the <i>readyState</i>, the <i>status</i> and the <i>responseText</i>
 	 */
 	constructor(options) {
 
@@ -42,36 +42,45 @@ class AWSRequestSV4{
 			&& options.params !== null
 			&& Object.keys(options.params).length > 0
 			&& options.params.constructor === Object) {
-            if (this.method !== 'GET') {
-                headers['Content-Type'] = 'application/json';
-            }
-            else {
-                //in case of get request we append the params to the url
-                options.url += '?' + this.toQueryString(options.params);
-            }
-        }
-        this.request = new XMLHttpRequest();
-        this.request.open(this.method, options.url, options.async);
-        this.request.onreadystatechange = function() {
-				//attach the callback
-				if (this.readyState === 4 && this.status === 200) {
+			if (this.method !== 'GET') {
+				headers['Content-Type'] = 'application/json';
+			}
+			else {
+				//in case of get request we append the params to the url
+				options.url += '?' + this.toQueryString(options.params);
+			}
+		}
+		this.request = new XMLHttpRequest();
+		let xmlHttpReq = this.request;
+		this.request.open(this.method, options.url, options.async);
+		this.request.onreadystatechange = function() {
 
-					if(options.onSuccess && typeof options.onSuccess === 'function')
-                        options.onSuccess({
+			//attach the callback
+			if (this.readyState === 4) {
+				if (this.status >= 200 && this.status <= 299) {
+
+					if (options.onSuccess && typeof options.onSuccess === 'function') {
+						options.onSuccess({
 							readyState: this.readyState,
 							status: this.status,
-                            responseText: this.responseText
+							responseText: this.responseText
 						});
+					}
 				}
-				else{
-                    if(options.onFailure && typeof options.onFailure === 'function')
-                        options.onFailure({
-                            readyState: this.readyState,
-                            status: this.status,
-                            responseText: this.responseText
-                        });
+				else {
+
+					console.log(xmlHttpReq);
+					if (options.onFailure && typeof options.onFailure === 'function') {
+
+						options.onFailure({
+							readyState: this.readyState,
+							status: this.status,
+							responseText: this.responseText
+						});
+					}
 				}
-        };
+			}
+		};
 
 		this.prepareHeadersEntries(headers);
 	}
@@ -136,10 +145,10 @@ class AWSRequestSV4{
 			}
 		}
 		/*
-		if(url.charAt(url.length-1) !== '/'){
-			url += '/';
-		}
-		*/
+		 if(url.charAt(url.length-1) !== '/'){
+		 url += '/';
+		 }
+		 */
 		url = url.toLowerCase().trim();
 		return encodeURI(url);
 	}
@@ -172,14 +181,14 @@ class AWSRequestSV4{
 			}
 		}
 		else
-			if(typeof elem === 'object'
+		if(typeof elem === 'object'
 			&& this.method === 'GET'){
 
 			let qsArray = [];
 			Object.keys(elem)
 				.forEach(function(key, index){
-				qsArray[index] = (key + '=' + elem[key]);
-			});
+					qsArray[index] = (key + '=' + elem[key]);
+				});
 			cqs = qsArray.sort()
 				.join("&")
 				.trim();
@@ -203,7 +212,7 @@ class AWSRequestSV4{
 			Object.keys(reqHeaders).forEach(function(key) {
 
 				//host header is set automatically
-                if(key !== 'Host')
+				if(key !== 'Host')
 					$self.request.setRequestHeader(key, reqHeaders[key]);
 
 				let newKey = key.trim()
@@ -258,7 +267,7 @@ class AWSRequestSV4{
 				.toString()
 				.toLowerCase();
 		else
-			return CryptoJS.SHA256(JSON.encode(this.params))
+			return CryptoJS.SHA256(JSON.stringify(this.params))
 				.toString()
 				.toLowerCase();
 	}
@@ -276,19 +285,19 @@ class AWSRequestSV4{
 			.toLowerCase();
 	}
 
-    /**
+	/**
 	 * Utility method to convert a simple javascript object into query string.
-     * @param obj
-     * @returns {string}
-     */
-    toQueryString(obj) {
-        let str = [];
-        for(let p in obj)
-            if (obj.hasOwnProperty(p)) {
-                str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
-            }
-        return str.join("&");
-    }
+	 * @param obj
+	 * @returns {string}
+	 */
+	toQueryString(obj) {
+		let str = [];
+		for(let p in obj)
+			if (obj.hasOwnProperty(p)) {
+				str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+			}
+		return str.join("&");
+	}
 
 	/**
 	 * Returns a string representing the current date in YYYYMMDD format.
@@ -340,9 +349,9 @@ class AWSRequestSV4{
 
 		//create the string to sign
 		let stringToSign = 'AWS4-HMAC-SHA256\n'
-				+ this.headers['x-amz-date'] + '\n'
-				+ this.getDate() + '/' + this.region + '/' + this.service + '/aws4_request\n'
-				+ this.getCanonicalRequestDigest();
+			+ this.headers['x-amz-date'] + '\n'
+			+ this.getDate() + '/' + this.region + '/' + this.service + '/aws4_request\n'
+			+ this.getCanonicalRequestDigest();
 
 		console.log('String to sign');
 		console.log(stringToSign);
@@ -372,17 +381,17 @@ class AWSRequestSV4{
 		request.setRequestHeader('X-Amz-Security-Token', this.awsCredentials.sessionToken);
 	}
 
-    	/**
-	* Sends the request.
-     	*/
+	/**
+	 * Sends the request.
+	 */
 	send(){
 		this.prepareRequest();
-        	if (this.method !== 'GET') {
-            		this.request.send(JSON.stringify(this.params));
+		if (this.method !== 'GET') {
+			this.request.send(JSON.stringify(this.params));
 		}
-        	else {
-            		this.request.send();
-        	}
+		else {
+			this.request.send();
+		}
 	}
 
 }
