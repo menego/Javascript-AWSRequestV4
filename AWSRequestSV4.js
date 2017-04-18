@@ -20,8 +20,8 @@ class AWSRequestSV4{
 	 * @param {Object} options.params a simple plain javascript object containing the parameters of the request, if the method is of type GET the params will be converted in querystring format
 	 * @param {String} options.region the AWS region of the service you are making the request for
 	 * @param {String} options.service the AWS standard service name, for a the whole list visit http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
-	 * @param {Function} [options.onSuccess(resp)] an optional callback function that wil be executed once the request succeeds, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
-	 * @param {Function} [options.onFailure(resp)] an optional callback function that wil be executed once the request fails, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
+	 * @param {Function} [options.onSuccess(resp)] an optional callback function that will be executed if the request succeeds, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
+	 * @param {Function} [options.onFailure(resp)] an optional callback function that will be executed if the request fails, resp param is an object containing the <i>readyState<i>, the <i>status<i> and the <i>responseText<i>
 	 */
 	constructor(options) {
 
