@@ -2,8 +2,8 @@
  * Created by Nicola Meneghetti <menego1983@gmail.com>
  * Version 1.1
  *
- * This class has the purpose to create a Canonical Request for Signature Version 4
- * in order to call AWS services with federated identities via HTTP requests.
+ * This class has the purpose to create a valid signed http request, implementing Signature Version 4 standard,
+ * in order to call permission-protected AWS services with temporary IAM role provided by Cognito Federated Identities.
  * Reference <a href="http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html">here</a>
  * <b>DEPENDENCY: Crypto-js, you can download it <a href="https://code.google.com/archive/p/crypto-js/">here</a> or use a CDN.</b>
  */
